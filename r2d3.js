@@ -5168,7 +5168,9 @@ window.Raphael.vml && function(R) {
   var createNode;
   R._engine.initWin = function(win) {
     var doc = win.document;
-    doc.createStyleSheet().addRule(".rvml", "behavior:url(#default#VML)");
+    doc.getElementsByTagName("head")[0].appendChild(document.createElement("style"));
+    var styleSheet = document.styleSheets[document.styleSheets.length - 1];
+    styleSheet.addRule(".rvml", "behavior:url(#default#VML)");
     try {
       !doc.namespaces.rvml && doc.namespaces.add("rvml", "urn:schemas-microsoft-com:vml");
       createNode = function(tagName) {
