@@ -2428,7 +2428,7 @@
       if (n == !!n) {
         return n;
       }
-      return pow(2, -10 * n) * math.sin((n - .075) * 2 * PI / .3) + 1;
+      return pow(2, -10 * n) * math.sin((n - .075) * (2 * PI) / .3) + 1;
     },
     bounce: function(n) {
       var s = 7.5625, p = 2.75, l;
@@ -7346,7 +7346,7 @@ d3 = function() {
       return x.toString(16).toUpperCase();
     },
     g: function(x, p) {
-      return x.toPrecision(p);
+      return p ? x.toPrecision(p) : x.toString();
     },
     e: function(x, p) {
       return x.toExponential(p);
@@ -8327,7 +8327,7 @@ d3 = function() {
         if (this.node() && this.node().paper) {
           return this.node().raphaelNode.attr(name);
         } else {
-          return window.getComputedStyle(this.node(), null).getPropertyValue(name);
+          return window.getComputedStylePropertyValue(this.node(), name);
         }
       }
       priority = "";
@@ -8339,7 +8339,11 @@ d3 = function() {
       if (this.paper) {
         this.removeStyleProperty(name);
       } else {
-        this.style.removeProperty(name);
+        if (this.style.removeProperty) {
+          this.style.removeProperty(name);
+        } else {
+          this.style.removeAttribute(name);
+        }
       }
     }
     function styleConstant() {
@@ -8359,7 +8363,11 @@ d3 = function() {
         if (this.paper) {
           this.removeStyleProperty(name);
         } else {
-          this.style.removeProperty(name);
+          if (this.style.removeProperty) {
+            this.style.removeProperty(name);
+          } else {
+            this.style.removeAttribute(name);
+          }
         }
       } else {
         if (this.paper) {
@@ -8407,13 +8415,13 @@ d3 = function() {
         this.setAttribute("text", value);
       });
     }
-    return arguments.length < 1 ? this.node().textContent : this.each(typeof value === "function" ? function() {
+    return arguments.length < 1 ? this.node().innerText : this.each(typeof value === "function" ? function() {
       var v = value.apply(this, arguments);
-      this.textContent = v == null ? "" : v;
+      this.innerText = v == null ? "" : v;
     } : value == null ? function() {
-      this.textContent = "";
+      this.innerText = "";
     } : function() {
-      this.textContent = value;
+      this.innerText = value;
     });
   };
   d3_selectionPrototype.html = function(value) {
@@ -8906,7 +8914,11 @@ d3 = function() {
       if (this.raphaelNode) {
         this.removeStyleProperty(name);
       } else {
-        this.style.removeProperty(name);
+        if (this.style.removeProperty) {
+          this.style.removeProperty(name);
+        } else {
+          this.style.removeAttribute(name);
+        }
       }
     }
     return d3_transition_tween(this, "style." + name, value, function(b) {
@@ -8917,9 +8929,13 @@ d3 = function() {
             this.setStyleProperty(name, i(t), priority);
           });
         }
-        var a = d3_window.getComputedStyle(this, null).getPropertyValue(name), i;
+        var a = d3_window.getComputedStylePropertyValue(this, name), i;
         return a !== b && (i = interpolate(a, b), function(t) {
-          this.style.setProperty(name, i(t), priority);
+          if (this.style.setProperty) {
+            this.style.setProperty(name, i(t), priority);
+          } else {
+            this.style[name] = i(t);
+          }
         });
       }
       return b == null ? styleNull : (b += "", styleString);
@@ -8936,9 +8952,13 @@ d3 = function() {
       });
     }
     return this.tween("style." + name, function(d, i) {
-      var f = tween.call(this, d, i, d3_window.getComputedStyle(this, null).getPropertyValue(name));
+      var f = tween.call(this, d, i, d3_window.getComputedStylePropertyValue(this, name));
       return f && function(t) {
-        this.style.setProperty(name, f(t), priority);
+        if (this.style.setProperty) {
+          this.style.setProperty(name, f(t), priority);
+        } else {
+          this.style[name] = f(t);
+        }
       };
     });
   };
@@ -10559,7 +10579,8 @@ d3 = function() {
       this.raphaelNode = paper.path("Z");
       break;
 
-     case "IMG":
+     case "img":
+     case "image":
       this.raphaelNode = paper.image("#", 0, 0, 0, 0);
       break;
 
@@ -10573,7 +10594,6 @@ d3 = function() {
       break;
 
      case "svg":
-      this.raphaelNode = null;
       this.isSVG = true;
     }
     this.updateProperty("transform");
@@ -10582,6 +10602,28 @@ d3 = function() {
   R2D3Element.prototype._linePath = function() {
     var x1 = this.domNode.getAttribute("x1") || 0, x2 = this.domNode.getAttribute("x2") || 0, y1 = this.domNode.getAttribute("y1") || 0, y2 = this.domNode.getAttribute("y2") || 0;
     return [ "M", x1, " ", y1, "L", x2, " ", y2, "Z" ].join("");
+  };
+  R2D3Element.prototype._strokeDashArray = function(dashValue) {
+    var dasharray = {
+      "3 1": "-",
+      "1 1": ".",
+      "3 1 1 1": "-.",
+      "3 1 1 1 1 1": "-..",
+      "1 3": ". ",
+      "4 3": "- ",
+      "8 3": "--",
+      "4 3 1 3": "- .",
+      "8 3 1 3": "--.",
+      "8 3 1 3 1 3": "--.."
+    };
+    if (dashValue === undefined) {
+      dashValue = this.domNode.getAttribute("stroke-dasharray");
+    }
+    dashValue = dashValue ? dashValue.match(/\d+/g) : "";
+    if (dashValue.length) {
+      dashValue = dashValue.join(" ");
+    }
+    return dasharray[dashValue] || "";
   };
   R2D3Element.prototype.updateProperty = function(propertyName) {
     switch (propertyName) {
@@ -10665,6 +10707,10 @@ d3 = function() {
       this.raphaelNode.attr("path", this._linePath());
       break;
 
+     case "stroke-dasharray":
+      this.raphaelNode.attr("stroke-dasharray", this._strokeDashArray());
+      break;
+
      default:
       if (this.raphaelNode) {
         var value = this.domNode.style.getAttribute(propertyName) || this.domNode.currentStyle.getAttribute(propertyName) || this.domNode.getAttribute(propertyName);
@@ -10674,7 +10720,7 @@ d3 = function() {
   };
   R2D3Element.prototype.updateCurrentStyle = function(name) {
     function undash(name) {
-      return name.replace(/-w/, function(match) {
+      return name.replace(/-\w/, function(match) {
         return match.charAt(1).toUpperCase();
       });
     }
@@ -10697,7 +10743,7 @@ d3 = function() {
       "fill-opacity": getValue(el, "fill-opacity", currentStyle) || 1,
       opacity: getValue(el, "opacity", currentStyle) || 1,
       stroke: getValue(el, "stroke", currentStyle) || "none",
-      "stroke-dasharray": getValue(el, "stroke-dasharray", currentStyle),
+      "stroke-dasharray": this._strokeDashArray(getValue(el, "stroke-dasharray", currentStyle)),
       "stroke-linecap": getValue(el, "stroke-linecap", currentStyle) || "butt",
       "stroke-linejoin": getValue(el, "stroke-linejoin", currentStyle) || "miter",
       "stroke-miterlimit": getValue(el, "stroke-miterlimit", currentStyle) || 4,
@@ -10854,7 +10900,7 @@ d3 = function() {
         } else {
           var camelCasedCssProperty = getCamelCasedCssProperty(cssProperty);
           if (el.currentStyle) {
-            return el.currentStyle(camelCasedCssProperty);
+            return el.currentStyle[camelCasedCssProperty];
           } else {
             return el.style[camelCasedCssProperty];
           }
@@ -10865,7 +10911,7 @@ d3 = function() {
     };
     function getCamelCasedCssProperty(cssProperty) {
       return cssProperty.replace(/-([a-z])/g, function(g) {
-        return g[1].toUpperCase();
+        return g.charAt(1).toUpperCase();
       });
     }
   })(this);
